@@ -1,47 +1,37 @@
 #include <WiFi.h>
 #include <WebServer.h>
-#include <FS.h>   // File System library
-#include <SD.h>   // SD Card library
-#include <SPI.h>  // SPI library, required for SD card communication
-#include "esp_task_wdt.h" // Required for Watchdog Timer
+#include <FS.h>   
+#include <SD.h>   
+#include <SPI.h>  
+#include "esp_task_wdt.h"
 
-// WiFi Credentials
-// IMPORTANT: Replace with your actual WiFi network name (SSID) and password.
 const char* ssid = "redacted";
 const char* password = "redacted";
 
-// NAS Credentials 
 const char* nas_username = "admin";
-const char* nas_password = "123"; // CHANGE THIS TO A STRONG PASSWORD!
+const char* nas_password = "123";
 
-// SD Card Pins 
 #define SD_SCK    18
 #define SD_MISO   19
 #define SD_MOSI   23
 #define SD_CS     15
 
-// Watchdog Timer Config
 #define WDT_TIMEOUT_SECONDS 30
 
-// Max File Size Config
 const long MAX_FILE_SIZE_MB = 10;
 const long MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 WebServer server(80);
 
-// Global variable to hold the file being uploaded
 File uploadedFile;
 bool isUploading = false;
 unsigned long uploadedBytes = 0;
 unsigned long totalUploadSize = 0;
 
-
-// HTML Content Functions 
 String getIndexPage(String message = "", String messageType = "info"); 
 String getFileListHtml(String path);
 String getWifiSignalStrengthHtml();
 
-// Web Server Handler Functions
 void handleRoot();
 void handleListFiles();
 void handleDownload();
@@ -49,16 +39,13 @@ void handleUpload();
 void handleDelete();
 void handleNotFound();
 
-// Utility Function for Authentication 
 bool isAuthenticated(); 
 
-// SD Card Test Function 
 void testSDCard() {
   Serial.println("--- Starting SD Card Read/Write Test ---");
   const char* testFileName = "/test_write.txt";
   const char* testContent = "Hello from ESP32!";
 
-  // 1. Create and write to file
   Serial.print("Creating/writing file: ");
   Serial.print(testFileName);
   File testFile = SD.open(testFileName, FILE_WRITE);
@@ -71,7 +58,6 @@ void testSDCard() {
   testFile.close();
   Serial.println(" - SUCCESS (written)");
 
-  // 2. Read from file
   Serial.print("Reading file: ");
   Serial.print(testFileName);
   testFile = SD.open(testFileName, FILE_READ);
@@ -89,7 +75,6 @@ void testSDCard() {
   Serial.print(readContent);
   Serial.println("\")");
 
-  // 3. Verify content
   if (readContent == testContent) {
     Serial.println("Content verification: MATCH!");
   } else {
@@ -98,7 +83,6 @@ void testSDCard() {
     return;
   }
 
-  // 4. Delete file
   Serial.print("Deleting file: ");
   Serial.print(testFileName);
   if (SD.remove(testFileName)) {
@@ -112,7 +96,6 @@ void testSDCard() {
   Serial.println("--- SD Card Test PASSED ---");
 }
 
-// Setup Function 
 void setup() {
   Serial.begin(115200);
   while (!Serial);
@@ -178,7 +161,6 @@ void setup() {
 
   testSDCard();
 
-  // Define Web Server Routes 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/list", HTTP_GET, handleListFiles);
   server.on("/download", HTTP_GET, handleDownload);
@@ -196,18 +178,15 @@ void loop() {
   server.handleClient();
 }
 
-// Authentication Implementation 
 bool isAuthenticated() {
-  // server.authenticate() checks the HTTP Basic Auth credentials sent by the client.
+  
   if (server.authenticate(nas_username, nas_password)) {
-    return true; // Authentication successful
+    return true; 
   }
-  // If authentication fails, send a 401 Unauthorized response
-  server.requestAuthentication();
-  return false; // Authentication failed
-}
 
-// HTML Page Content Implementations 
+  server.requestAuthentication();
+  return false; 
+}
 
 String getIndexPage(String message, String messageType) {
   String html = R"rawliteral(
@@ -248,7 +227,7 @@ String getIndexPage(String message, String messageType) {
       bgColor = "bg-green-100"; borderColor = "border-green-400"; textColor = "text-green-700";
     } else if (messageType == "error") {
       bgColor = "bg-red-100"; borderColor = "border-red-400"; textColor = "text-red-700";
-    } else { // info
+    } else { 
       bgColor = "bg-blue-100"; borderColor = "border-blue-400"; textColor = "text-blue-700";
     }
     
@@ -286,16 +265,14 @@ String getIndexPage(String message, String messageType) {
         </div>
 
         <script>
-            // Function to display messages on the page
             function showMessage(msg, type = 'info') {
                 const messageBox = document.getElementById('messageBox');
-                // Ensure the messageBox exists and is correctly styled
                 let bgColor, borderColor, textColor;
                 if (type === "success") {
                     bgColor = "bg-green-100"; borderColor = "border-green-400"; textColor = "text-green-700";
                 } else if (type === "error") {
                     bgColor = "bg-red-100"; borderColor = "border-red-400"; textColor = "text-red-700";
-                } else { // info
+                } else { 
                     bgColor = "bg-blue-100"; borderColor = "border-blue-400"; textColor = "text-blue-700";
                 }
 
@@ -303,20 +280,15 @@ String getIndexPage(String message, String messageType) {
                     messageBox.className = `${bgColor} ${borderColor} ${textColor} px-4 py-3 rounded-lg relative mb-4`;
                     messageBox.querySelector('span.block').textContent = msg;
                     messageBox.querySelector('svg').className = `fill-current h-6 w-6 ${textColor}`;
-                    messageBox.style.display = 'block'; // Ensure it's visible
+                    messageBox.style.display = 'block'; 
                 } else {
-                    // Fallback or initial message if the element isn't fully loaded yet
                     console.log(`Message (${type}): ${msg}`);
                 }
             }
-
-            // Function to fetch and display the file list from the ESP32 server
             async function fetchFileList() {
                 try {
                     const response = await fetch('/list');
                     if (!response.ok) {
-                        // For HTTP Basic Auth, 401 means "Unauthorized" and will trigger browser prompt.
-                        // No explicit redirect needed here, as the browser handles it.
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     const data = await response.text();
@@ -327,8 +299,7 @@ String getIndexPage(String message, String messageType) {
                     showMessage('Error loading files: ' + error.message, 'error');
                 }
             }
-
-            // Event listener for the file upload form submission
+    
             document.getElementById('uploadForm').addEventListener('submit', async function(event) {
                 event.preventDefault();
                 const fileInput = document.getElementById('fileInput');
@@ -376,7 +347,6 @@ String getIndexPage(String message, String messageType) {
                         fileInput.value = '';
                         fetchFileList();
                     } else if (xhr.status === 401) {
-                        // Browser will likely re-prompt for credentials
                         showMessage('Authentication required for upload. Please re-enter credentials.', 'error');
                         console.error('Error uploading file: Unauthorized');
                     } else {
@@ -394,14 +364,12 @@ String getIndexPage(String message, String messageType) {
                 xhr.send(formData);
             });
 
-            // Function to handle file deletion
             async function deleteFile(filename) {
                 if (confirm(`Are you sure you want to delete "${filename}"?`)) {
                     try {
                         const response = await fetch(`/delete?file=${encodeURIComponent(filename)}`);
                         if (!response.ok) {
                             if (response.status === 401) {
-                                // Browser will likely re-prompt for credentials
                                 showMessage('Authentication required for deletion. Please re-enter credentials.', 'error');
                                 return;
                             }
@@ -439,12 +407,12 @@ String getFileListHtml(String path) {
 
   File file = root.openNextFile();
   while (file) {
-    html += "<li class='file-item bg-white p-3 rounded-lg shadow-sm border border-gray-100'>"; // Added styling to list items
+    html += "<li class='file-item bg-white p-3 rounded-lg shadow-sm border border-gray-100'>"; 
     if (file.isDirectory()) {
-      html += "<span class='text-blue-700 font-semibold flex items-center'><svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5 mr-2 text-blue-500' viewBox='0 0 20 20' fill='currentColor'><path d='M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z' /></svg>" + String(file.name()) + "/</span>"; // Folder icon (SVG)
+      html += "<span class='text-blue-700 font-semibold flex items-center'><svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5 mr-2 text-blue-500' viewBox='0 0 20 20' fill='currentColor'><path d='M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z' /></svg>" + String(file.name()) + "/</span>"; 
     } else {
-      html += "<span class='text-gray-800 flex items-center'><svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5 mr-2 text-gray-400' viewBox='0 0 20 20' fill='currentColor'><path fill-rule='evenodd' d='M4 4a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1-3a1 1 0 100 2h6a1 1 0 100-2H7z' clip-rule='evenodd' /></svg>" + String(file.name()) + " <span class='text-xs text-gray-500 ml-2'>(" + String(file.size()) + " bytes)</span></span>"; // File icon (SVG)
-      html += "<div class='file-actions flex items-center'>"; // Use flex for button alignment
+      html += "<span class='text-gray-800 flex items-center'><svg xmlns='http://www.w3.org/2000/svg' class='h-5 w-5 mr-2 text-gray-400' viewBox='0 0 20 20' fill='currentColor'><path fill-rule='evenodd' d='M4 4a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1-3a1 1 0 100 2h6a1 1 0 100-2H7z' clip-rule='evenodd' /></svg>" + String(file.name()) + " <span class='text-xs text-gray-500 ml-2'>(" + String(file.size()) + " bytes)</span></span>";
+      html += "<div class='file-actions flex items-center'>"; 
       html += "<a href='/download?file=" + String(file.name()) + "' class='bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 px-2 rounded-lg shadow-sm transition duration-150 ease-in-out' download>Download</a>";
       html += "<button onclick='deleteFile(\"" + String(file.name()) + "\")' class='bg-red-500 hover:bg-red-600 text-white text-xs py-1 px-2 rounded-lg shadow-sm transition duration-150 ease-in-out'>Delete</button>";
       html += "</div>";
@@ -454,7 +422,7 @@ String getFileListHtml(String path) {
   }
   html += "</ul>";
 
-  if (html == "<ul class='list-disc pl-5 space-y-2'></ul>") { // Updated check for empty list
+  if (html == "<ul class='list-disc pl-5 space-y-2'></ul>") { 
     html = "<p class='text-gray-500 text-center py-4'>No files or folders found on the SD card.</p>";
   }
   return html;
@@ -492,21 +460,20 @@ String getWifiSignalStrengthHtml() {
     warningMessage = " (Wi-Fi will cause significant problems)";
   }
 
-  String html = "<div class='mb-4 text-center p-2 rounded-lg bg-gray-50 border border-gray-200'>"; // Added styling
+  String html = "<div class='mb-4 text-center p-2 rounded-lg bg-gray-50 border border-gray-200'>";
   html += "<p class='text-gray-700 text-lg font-semibold'>Wi-Fi Signal: <span class='" + colorClass + "'>" + strengthText + " (Level " + String(level) + ")</span></p>";
   if (warningMessage != "") {
-    html += "<p class='text-sm text-red-500 mt-1'>" + warningMessage + "</p>"; // Added margin-top
+    html += "<p class='text-sm text-red-500 mt-1'>" + warningMessage + "</p>"; 
   }
   html += "</div>";
   return html;
 }
 
 
-// Web Server Handler Implementations
+
 
 void handleRoot() {
   if (!isAuthenticated()) {
-    // browser will handle authentication prompt
     return;
   }
   String message = "";
@@ -522,7 +489,6 @@ void handleRoot() {
 
 void handleListFiles() {
   if (!isAuthenticated()) {
-    // browser will handle authentication prompt for XHR
     return;
   }
   server.send(200, "text/html", getFileListHtml("/"));
@@ -530,7 +496,6 @@ void handleListFiles() {
 
 void handleDownload() {
   if (!isAuthenticated()) {
-    // browser will handle authentication prompt
     return;
   }
 
@@ -554,7 +519,6 @@ void handleUpload() {
   esp_task_wdt_reset();
 
   if (!isAuthenticated()) {
-    // browser will handle authentication prompt for XHR
     server.send(401, "text/plain", "Unauthorized. Please re-enter credentials.");
     return;
   }
